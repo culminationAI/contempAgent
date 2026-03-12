@@ -2,13 +2,13 @@
 set -euo pipefail
 
 # ─────────────────────────────────────────────────────────
-# ContempAgent v0.2 — Onboarding Installer
-# Installs the AI development agent into your project
+# ContempAgent v0.2 — Standalone Onboarding Installer
+# Place this file in your project directory and run it.
+# It clones the agent repo, installs files, and cleans up.
 # ─────────────────────────────────────────────────────────
 
-AGENT_DIR="$(cd "$(dirname "$0")" && pwd)"
-TARGET_DIR="${1:-.}"
-TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+REPO_URL="https://github.com/culminationAI/contempAgent.git"
+TARGET_DIR="$(pwd)"
 
 # Colors
 RED='\033[0;31m'
@@ -25,35 +25,48 @@ fail()  { echo -e "${RED}✗${NC} $1"; }
 info()  { echo -e "${BLUE}→${NC} $1"; }
 header(){ echo -e "\n${BOLD}${CYAN}$1${NC}\n"; }
 
-header "ContempAgent v0.2 — Onboarding Installer"
+header "ContempAgent v0.2 — Standalone Installer"
 
-# ─── Step 1: Validate target directory ────────────────────
+# ─── Step 1: Check git (hard dependency for clone) ──────
+
+if ! command -v git &>/dev/null; then
+  fail "Git is required to clone the agent repository."
+  echo "    Install: brew install git  (or https://git-scm.com)"
+  exit 1
+fi
+
+# ─── Step 2: Clone agent repo to temp directory ─────────
+
+header "Fetching Agent Repository"
+
+TMPDIR_CLONE="$(mktemp -d)"
+cleanup() {
+  if [ -d "$TMPDIR_CLONE" ]; then
+    rm -rf "$TMPDIR_CLONE"
+  fi
+}
+trap cleanup EXIT
+
+info "Cloning $REPO_URL ..."
+if git clone --depth 1 "$REPO_URL" "$TMPDIR_CLONE/contempAgent" 2>&1 | tail -3; then
+  log "Repository cloned successfully"
+else
+  fail "Failed to clone repository. Check your internet connection and access."
+  exit 1
+fi
+
+AGENT_DIR="$TMPDIR_CLONE/contempAgent"
+
+# ─── Step 3: Validate target directory ──────────────────
 
 info "Target project: ${BOLD}$TARGET_DIR${NC}"
-
-if [ "$AGENT_DIR" = "$TARGET_DIR" ]; then
-  warn "You're running install.sh from inside the agent directory."
-  echo "  Usage: ./install.sh /path/to/your/project"
-  echo "  Or:    cd /path/to/your/project && /path/to/contempAgent/install.sh"
-  echo ""
-  read -p "Continue installing into this directory? [y/N] " confirm
-  [[ "$confirm" =~ ^[Yy]$ ]] || exit 0
-fi
 
 if [ ! -d "$TARGET_DIR" ]; then
   fail "Directory does not exist: $TARGET_DIR"
   exit 1
 fi
 
-# Validate it looks like a project directory
-if [ ! -f "$TARGET_DIR/package.json" ] && [ ! -d "$TARGET_DIR/src" ]; then
-  warn "No package.json or src/ found in $TARGET_DIR"
-  echo "  This doesn't look like a project directory."
-  read -p "  Continue anyway? [y/N] " project_confirm
-  [[ "$project_confirm" =~ ^[Yy]$ ]] || exit 1
-fi
-
-# ─── Step 2: Check dependencies ──────────────────────────
+# ─── Step 4: Check dependencies ─────────────────────────
 
 header "Checking Dependencies"
 
@@ -77,7 +90,6 @@ check_cmd() {
 check_cmd "node"    "Node.js"    "brew install node  (or https://nodejs.org)"
 check_cmd "npm"     "npm"        "comes with Node.js"
 check_cmd "npx"     "npx"        "comes with Node.js"
-check_cmd "git"     "Git"        "brew install git   (or https://git-scm.com)"
 check_cmd "docker"  "Docker"     "brew install --cask docker (or https://docker.com)"
 check_cmd "python3" "Python 3"   "brew install python3"
 
@@ -112,7 +124,6 @@ if [ ${#MISSING[@]} -gt 0 ]; then
       for dep in "${MISSING[@]}"; do
         case "$dep" in
           node|npm|npx) brew install node ;;
-          git)          brew install git ;;
           docker)       brew install --cask docker ;;
           python3)      brew install python3 ;;
           ffmpeg)       brew install ffmpeg ;;
@@ -131,7 +142,7 @@ if [ ${#MISSING[@]} -gt 0 ]; then
   [[ "$continue_confirm" =~ ^[Yy]$ ]] || exit 1
 fi
 
-# ─── Step 3: Install agent files ─────────────────────────
+# ─── Step 5: Install agent files ────────────────────────
 
 header "Installing Agent Files"
 
@@ -146,8 +157,8 @@ if [ -d "$AGENT_DIR/.claude" ]; then
   cp -r "$AGENT_DIR/.claude" "$TARGET_DIR/.claude"
   log "Copied .claude/ (agents, hooks, skills, memory, settings)"
 else
-  fail "No .claude/ directory found in $AGENT_DIR"
-  echo "    The agent source directory appears incomplete."
+  fail "No .claude/ directory found in cloned repo"
+  echo "    The repository appears incomplete."
   exit 1
 fi
 
@@ -160,7 +171,7 @@ if [ -f "$AGENT_DIR/CLAUDE.md" ]; then
   cp "$AGENT_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
   log "Copied CLAUDE.md (coordinator config)"
 else
-  warn "No CLAUDE.md found in $AGENT_DIR — skipping"
+  warn "No CLAUDE.md found in cloned repo — skipping"
 fi
 
 # Copy .mcp.json and update filesystem path
@@ -170,24 +181,33 @@ if [ -f "$AGENT_DIR/.mcp.json" ]; then
     cp "$TARGET_DIR/.mcp.json" "$TARGET_DIR/.mcp.json.bak"
   fi
 
-  # Update the filesystem server path to point to target directory
+  # Replace any hardcoded repo path with the target directory
   sed "s|$AGENT_DIR|$TARGET_DIR|g" "$AGENT_DIR/.mcp.json" > "$TARGET_DIR/.mcp.json"
+
+  # Also catch the canonical GitHub path pattern (in case the repo .mcp.json
+  # contains its own default path rather than the temp clone path)
+  if grep -q "contempAgent" "$TARGET_DIR/.mcp.json" 2>/dev/null; then
+    # Replace any path ending in /contempAgent with TARGET_DIR
+    sed -i.sedtmp 's|"[^"]*contempAgent"|"'"$TARGET_DIR"'"|g' "$TARGET_DIR/.mcp.json"
+    rm -f "$TARGET_DIR/.mcp.json.sedtmp"
+  fi
+
   log "Copied .mcp.json (MCP servers — filesystem path updated)"
 else
-  warn "No .mcp.json found in $AGENT_DIR — skipping"
+  warn "No .mcp.json found in cloned repo — skipping"
 fi
 
 # Make hooks executable
 if ls "$TARGET_DIR/.claude/hooks/"*.sh &>/dev/null 2>&1; then
   chmod +x "$TARGET_DIR/.claude/hooks/"*.sh
-  log "Made hook scripts executable"
+  log "Made hook shell scripts executable"
 fi
 if ls "$TARGET_DIR/.claude/hooks/"*.py &>/dev/null 2>&1; then
   chmod +x "$TARGET_DIR/.claude/hooks/"*.py
   log "Made hook Python scripts executable"
 fi
 
-# ─── Step 4: Install project dependencies ─────────────────
+# ─── Step 6: Install project dependencies ────────────────
 
 header "Project Setup"
 
@@ -200,7 +220,7 @@ else
   echo "    Run 'npm init' when ready to set up your project."
 fi
 
-# ─── Step 5: Verify MCP servers ──────────────────────────
+# ─── Step 7: Verify MCP servers ─────────────────────────
 
 header "Verifying MCP Servers"
 
@@ -221,7 +241,7 @@ verify_mcp "filesystem" "@modelcontextprotocol/server-filesystem"
 verify_mcp "memento"    "@modelcontextprotocol/server-memory"
 verify_mcp "github"     "@modelcontextprotocol/server-github"
 
-# ─── Step 6: Summary & next steps ────────────────────────
+# ─── Step 8: Summary & next steps ───────────────────────
 
 header "Installation Complete"
 

@@ -16,21 +16,31 @@ All agents run on **Claude Opus** with extended thinking enabled.
 
 ## Quick Start
 
-### Option 1: Install into an existing project
+### One-line install (recommended)
 
 ```bash
-git clone https://github.com/culminationAI/contempAgent.git
-cd contempAgent
-./install.sh /path/to/your/project
+curl -fsSL https://raw.githubusercontent.com/culminationAI/contempAgent/main/install.sh | bash
+```
+
+### Manual install
+
+1. Download `install.sh` into your project directory
+2. Run it:
+
+```bash
+cd /path/to/your/project
+bash install.sh
 ```
 
 The installer will:
-1. Copy agent configuration into your project
-2. Check and install missing dependencies (Node.js, Docker, FFmpeg, etc.)
-3. Set up MCP servers (context7, filesystem, memento, github)
-4. Offer to run `/meditate` for full codebase onboarding
+1. Clone the agent repo to a temp directory
+2. Copy agent configuration (`.claude/`, `CLAUDE.md`, `.mcp.json`) into your project
+3. Check and install missing dependencies (Node.js, Docker, FFmpeg, etc.)
+4. Set up MCP servers (context7, filesystem, memento, github)
+5. Clean up the temp clone
+6. Offer to launch Claude Code and run `/meditate` for full codebase onboarding
 
-### Option 2: Start a new project from this template
+### Alternative: Start from the template
 
 ```bash
 git clone https://github.com/culminationAI/contempAgent.git my-video-editor
