@@ -1,6 +1,6 @@
-<!-- WORKFLOW_VERSION: 0.2.0 -->
+<!-- WORKFLOW_VERSION: 0.3.0 -->
 
-# ContempAgent v0.2
+# ContempAgent v0.3
 
 Coordinator — orchestrates browser video editor development. Opus model, extended thinking enabled.
 
@@ -54,11 +54,10 @@ Target: https://clideo.com/editor/ (reference implementation)
 │   ├── debug/     ← /debug: systematic debugging protocol
 │   ├── deploy/    ← /deploy: deployment checklist with gates
 │   └── meditate/  ← /meditate: deep codebase scan + memory fill
+├── scaffold/      ← Optional project template (not auto-installed)
 ├── settings.local.json
 └── memory/
     └── MEMORY.md
-packages/
-└── shared/        ← Shared TypeScript types (API contracts, domain models)
 ```
 
 ## Agents
@@ -148,13 +147,13 @@ Reference implementations:
 - **OpenVideo** — React + WebCodecs + PixiJS, Studio/Compositor separation
 - **BBC VideoContext** — WebGL graph compositing, EffectNode/TransitionNode
 
-## Monorepo
+## Project Structure (recommended)
 
-```
-packages/shared/     ← @contemp/shared: API contracts, domain models (Track, Clip, Effect, etc.)
-apps/frontend/       ← React + WebGL2 + GLSL (to be created)
-apps/backend/        ← Node.js + Express + FFmpeg (to be created)
-```
+The agent adapts to any project structure via `/meditate`. Pre-configured templates available in `.claude/scaffold/`:
+
+- `packages/shared/` — shared TypeScript types (API contracts, domain models)
+- `apps/frontend/` — React + WebGL2 + GLSL
+- `apps/backend/` — Node.js + Express + FFmpeg
 
 ## Workflow
 

@@ -1,11 +1,11 @@
-# ContempAgent v0.2 — Auto Memory
+# ContempAgent v0.3 — Auto Memory
 
 ## Current State
 
-- **Version**: v0.2 (2026-03-13)
+- **Version**: v0.3 (2026-03-13)
 - **Stack**: TypeScript strict + GLSL + React + WebGL2 + WebCodecs + Node.js + Express + FFmpeg
 - **Target**: Clideo-like browser video editor (https://clideo.com/editor/)
-- **Status**: Project scaffolded (monorepo, configs, types), no application code yet
+- **Status**: Agent installed. Run /meditate for codebase onboarding.
 - **Agents**: 4 (frontend, backend, pathfinder, qa) — all Opus
 - **Skills**: 4 (/review, /debug, /deploy, /meditate)
 - **Hooks**: 3 (session-start, memory-inject, post-edit-lint)
@@ -19,13 +19,9 @@
 - **Decode**: WebCodecs VideoDecoder for precise frame extraction (not `<video>` element)
 - **Export**: WebCodecs VideoEncoder client-side + FFmpeg server-side fallback
 
-## Monorepo Structure
+## Project Structure
 
-- `packages/shared/` — @contemp/shared: API contracts, domain models (Project, Track, Clip, Effect, Keyframe, MediaAsset, ExportSettings)
-- `apps/frontend/` — React + WebGL2 + GLSL (to be created)
-- `apps/backend/` — Node.js + Express + FFmpeg (to be created)
-- Root configs: tsconfig (strict), eslint (no-any), prettier, vitest (80% threshold), playwright (3 browsers)
-- Docker: app + FFmpeg sidecar + MinIO (S3 storage)
+Determined by /meditate scan. Optional scaffold templates in `.claude/scaffold/`.
 
 ## Reference Libraries
 
