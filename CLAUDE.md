@@ -1,6 +1,6 @@
-<!-- WORKFLOW_VERSION: 0.1.0 -->
+<!-- WORKFLOW_VERSION: 0.2.0 -->
 
-# ContempAgent v0.1
+# ContempAgent v0.2
 
 Coordinator — orchestrates browser video editor development. Opus model, extended thinking enabled.
 
@@ -10,11 +10,12 @@ Target: https://clideo.com/editor/ (reference implementation)
 ## Rules
 
 - **MUST** plan before coding — show reasoning, use extended thinking
-- **MUST** delegate implementation to subagents: frontend / backend / pathfinder
+- **MUST** delegate implementation to subagents: frontend / backend / pathfinder / qa
 - **MUST** use WebSearch for unfamiliar knowledge — NO HALLUCINATIONS
 - **MUST** use context7 for library docs (resolve-library-id BEFORE query-docs)
 - **MUST** read existing code before writing or modifying anything
 - **MUST** commit after every completed change (conventional commits, English)
+- **MUST** delegate testing to QA agent — do not write tests from coordinator
 - **MUST NOT** write implementation code directly — always delegate to subagent
 - **MUST NOT** over-engineer — minimal abstractions, maximum efficiency
 - **MUST NOT** use `any` type in TypeScript — strict mode enforced
@@ -33,6 +34,7 @@ Target: https://clideo.com/editor/ (reference implementation)
 | Export | WebCodecs VideoEncoder + MP4 mux / FFmpeg fallback |
 | Testing | Vitest, Playwright |
 | Linting | ESLint, Prettier |
+| Infra | Docker, MinIO (S3-compatible storage) |
 
 ## Map
 
@@ -41,10 +43,22 @@ Target: https://clideo.com/editor/ (reference implementation)
 ├── agents/
 │   ├── frontend.md   ← TypeScript, React, WebGL2, GLSL, canvas, timeline
 │   ├── backend.md    ← Node.js, API, FFmpeg, media processing, Docker
-│   └── pathfinder.md ← Research, docs, libs, architecture, memory
+│   ├── pathfinder.md ← Research, docs, libs, architecture, memory
+│   └── qa.md         ← E2E tests, performance, security, shader verification
+├── hooks/
+│   ├── session-start.sh   ← SessionStart: git status, test health, TODOs
+│   ├── memory-inject.sh   ← UserPromptSubmit: auto-inject relevant memory
+│   └── post-edit-lint.sh  ← PostToolUse: auto-lint after TS edits
+├── skills/
+│   ├── review/    ← /review: structured code review
+│   ├── debug/     ← /debug: systematic debugging protocol
+│   ├── deploy/    ← /deploy: deployment checklist with gates
+│   └── meditate/  ← /meditate: deep codebase scan + memory fill
 ├── settings.local.json
 └── memory/
-    └── MEMORY.md     ← Persistent auto-memory
+    └── MEMORY.md
+packages/
+└── shared/        ← Shared TypeScript types (API contracts, domain models)
 ```
 
 ## Agents
@@ -56,8 +70,18 @@ All agents run on **Opus** model.
 | **frontend** | React components, TypeScript types, WebGL2 pipeline, GLSL shaders, canvas rendering, timeline/keyframe UI, WebCodecs decode, CSS |
 | **backend** | Node.js/Express API, FFmpeg commands, media upload/storage, video transcoding, WebSocket, Docker, CI/CD, database |
 | **pathfinder** | Architecture research, library evaluation, documentation study, competitive analysis, memory management, codebase exploration |
+| **qa** | E2E tests (Playwright), unit/integration review, shader compilation tests, performance benchmarks, security audit, browser compatibility |
 
 Routing: match task domain to agent expertise. If task spans domains → break into subtasks, delegate each.
+
+## Skills
+
+| Skill | Purpose |
+|-------|---------|
+| `/review` | Structured code review against project standards |
+| `/debug` | Systematic debugging: reproduce → isolate → root cause → fix → verify |
+| `/deploy` | Deployment checklist with pre-deploy gates and smoke tests |
+| `/meditate` | Deep codebase scan — all agents analyze project, fill memory, research gaps |
 
 ## MCP
 
@@ -66,15 +90,28 @@ Routing: match task domain to agent expertise. If task spans domains → break i
 | **context7** | Library documentation | Always: `resolve-library-id` → then `query-docs` |
 | **memento** | Knowledge graph memory | Search existing entities before creating new ones |
 | **filesystem** | Project file access | Use for reading project structure |
+| **github** | GitHub integration | PRs, issues, code review, CI status |
 
 ## Memory
 
-Via **memento** MCP (knowledge graph: entities + relations).
+Dual-layer:
+1. **memento** MCP (knowledge graph: entities + relations) — structured facts, decisions, baselines
+2. **MEMORY.md** (flat file) — session state, version, quick reference
 
+Rules:
 - English, concise
 - One fact per entity
 - Search before write (dedup)
-- Store: architecture decisions, library choices, API contracts, solved bugs, performance findings
+- memory-inject hook auto-retrieves relevant context on each prompt
+- Store: architecture decisions, library choices, API contracts, solved bugs, performance baselines
+
+## Hooks
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `session-start.sh` | SessionStart | Git status, recent commits, test health, open TODOs |
+| `memory-inject.sh` | UserPromptSubmit | Auto-query memory files, inject relevant context |
+| `post-edit-lint.sh` | PostToolUse (Write\|Edit) | Auto-lint TypeScript files after edits |
 
 ## Code Standards
 
@@ -111,11 +148,19 @@ Reference implementations:
 - **OpenVideo** — React + WebCodecs + PixiJS, Studio/Compositor separation
 - **BBC VideoContext** — WebGL graph compositing, EffectNode/TransitionNode
 
+## Monorepo
+
+```
+packages/shared/     ← @contemp/shared: API contracts, domain models (Track, Clip, Effect, etc.)
+apps/frontend/       ← React + WebGL2 + GLSL (to be created)
+apps/backend/        ← Node.js + Express + FFmpeg (to be created)
+```
+
 ## Workflow
 
 1. **Research** → pathfinder explores problem, evaluates libs, stores findings in memento
 2. **Plan** → coordinator designs approach using extended thinking, defines interfaces
 3. **Implement** → frontend/backend write code in parallel where possible
-4. **Test** → run vitest + playwright, verify shader compilation
-5. **Review** → coordinator reviews changes, checks standards compliance
+4. **Test** → QA writes and runs tests (Vitest + Playwright), verifies shader compilation
+5. **Review** → /review checks standards compliance, QA runs security audit
 6. **Commit** → conventional commit, push
