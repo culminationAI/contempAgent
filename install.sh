@@ -223,61 +223,20 @@ if ls "$TARGET_DIR/.claude/hooks/"*.py &>/dev/null 2>&1; then
   log "Made hook Python scripts executable"
 fi
 
-# ─── Step 6: Scaffold (optional) ─────────────────────────
+# ─── Step 6: Project scan ────────────────────────────────
 
-header "Project Scaffold"
+header "Project Analysis"
 
-echo "The agent includes a project scaffold with:"
-echo "  . package.json — monorepo with TypeScript, ESLint, Prettier, Vitest"
-echo "  . tsconfig.json — strict TypeScript config"
-echo "  . eslint.config.js — strict ESLint rules (no 'any' allowed)"
-echo "  . prettier.config.js — code formatting"
-echo "  . vitest.config.ts — unit test config (80% coverage thresholds)"
-echo "  . playwright.config.ts — E2E test config (Chrome, Firefox, Safari)"
-echo "  . docker-compose.yml — app + FFmpeg + MinIO"
-echo "  . packages/shared/ — shared TypeScript types"
-echo ""
+has() { ls "$TARGET_DIR"/$1 &>/dev/null 2>&1; }
 
-read -p "Install project scaffold (package.json, TypeScript, ESLint, Prettier, Vitest, Playwright, Docker)? [y/N] " scaffold_confirm
-if [[ "$scaffold_confirm" =~ ^[Yy]$ ]]; then
-  SCAFFOLD_DIR="$AGENT_DIR/.claude/scaffold"
-
-  if [ -d "$SCAFFOLD_DIR" ]; then
-    # Copy scaffold files to target root
-    for f in package.json tsconfig.json eslint.config.js prettier.config.js vitest.config.ts playwright.config.ts docker-compose.yml; do
-      if [ -f "$SCAFFOLD_DIR/$f" ]; then
-        if [ -f "$TARGET_DIR/$f" ]; then
-          warn "$f already exists — backing up to $f.bak"
-          cp "$TARGET_DIR/$f" "$TARGET_DIR/$f.bak"
-        fi
-        cp "$SCAFFOLD_DIR/$f" "$TARGET_DIR/$f"
-      fi
-    done
-
-    # Copy packages/ directory
-    if [ -d "$SCAFFOLD_DIR/packages" ]; then
-      if [ -d "$TARGET_DIR/packages" ]; then
-        warn "packages/ already exists — backing up to packages.bak/"
-        rm -rf "$TARGET_DIR/packages.bak"
-        cp -r "$TARGET_DIR/packages" "$TARGET_DIR/packages.bak"
-      fi
-      cp -r "$SCAFFOLD_DIR/packages" "$TARGET_DIR/packages"
-    fi
-
-    log "Scaffold installed"
-
-    # Install npm dependencies
-    if [ -f "$TARGET_DIR/package.json" ]; then
-      info "Installing npm dependencies..."
-      (cd "$TARGET_DIR" && npm install 2>&1 | tail -5)
-      log "npm install complete"
-    fi
-  else
-    warn "Scaffold directory not found in repo — skipping"
-  fi
-else
-  info "Skipping scaffold. You can set up your own project structure."
-fi
+has "package.json"                                      && log "package.json"      || info "package.json — not found"
+has "tsconfig.json" || has "tsconfig.*.json"             && log "TypeScript config" || info "TypeScript — not configured"
+has "eslint.config.*" || has ".eslintrc" || has ".eslintrc.*" && log "ESLint"       || info "ESLint — not configured"
+has "prettier.config.*" || has ".prettierrc" || has ".prettierrc.*" && log "Prettier" || info "Prettier — not configured"
+has "vitest.config.*" || has "jest.config.*"             && log "Test runner"       || info "Test runner — not configured"
+has "playwright.config.*"                                && log "Playwright"        || info "Playwright — not configured"
+has "docker-compose.yml" || has "docker-compose.yaml" || has "compose.yml" && log "Docker Compose" || info "Docker — not configured"
+has "src" || has "apps" || has "lib"                     && log "Source code found" || info "No source directories yet"
 
 # ─── Step 7: Verify MCP servers ─────────────────────────
 

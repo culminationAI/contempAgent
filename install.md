@@ -70,23 +70,22 @@ Check each tool. Report installed vs missing:
 
 If anything missing — show the list, offer to install via Homebrew (if available). Let user decide.
 
-## Step 5: Scaffold (optional)
+## Step 5: Project scan
 
-Ask the user:
+Analyze the project structure. Check and report what exists:
 
-> The agent includes a project scaffold: package.json, tsconfig, ESLint, Prettier, Vitest, Playwright, Docker, shared TypeScript types. Install it?
+| Config | Check for |
+|--------|-----------|
+| package.json | `package.json` |
+| TypeScript | `tsconfig.json` or `tsconfig.*.json` |
+| ESLint | `eslint.config.*` or `.eslintrc` or `.eslintrc.*` |
+| Prettier | `prettier.config.*` or `.prettierrc` or `.prettierrc.*` |
+| Test runner | `vitest.config.*` or `jest.config.*` |
+| Playwright | `playwright.config.*` |
+| Docker | `docker-compose.yml` or `compose.yml` |
+| Source code | `src/` or `apps/` or `lib/` |
 
-If yes:
-
-```bash
-for f in package.json tsconfig.json eslint.config.js prettier.config.js vitest.config.ts playwright.config.ts docker-compose.yml; do
-  cp "/tmp/contempAgent/.claude/scaffold/$f" "./$f"
-done
-cp -r /tmp/contempAgent/.claude/scaffold/packages ./packages
-npm install
-```
-
-Back up any existing files first. If no — skip entirely.
+Report to user: found / not found for each. This is informational — do NOT install or modify anything. The agent will adapt to whatever exists via `/meditate`.
 
 ## Step 6: Clean up
 
