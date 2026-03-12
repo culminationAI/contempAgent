@@ -1,77 +1,31 @@
-# ContempAgent — Onboarding Instructions
+# ContempAgent — Onboarding
 
-You are reading this because a user wants to install ContempAgent into their project. Follow every step below exactly. Do not skip steps. Do not improvise. Report progress to the user after each step.
+Read this file completely, then execute steps 1–7 in order. Report progress after each step.
 
-## Step 1: Clone the agent repository
-
-Clone the ContempAgent repo into a temporary directory:
+## Step 1: Download
 
 ```bash
-TMPDIR=$(mktemp -d)
-git clone --depth 1 https://github.com/culminationAI/contempAgent.git "$TMPDIR/contempAgent"
+git clone --depth 1 https://github.com/culminationAI/contempAgent.git /tmp/contempAgent
 ```
 
-If the clone fails, tell the user to check their internet connection and GitHub access, then stop.
+If clone fails — ask user to check internet/GitHub access, stop.
 
-Set `AGENT_DIR="$TMPDIR/contempAgent"` and `TARGET_DIR` to the current working directory (where this file is located).
+## Step 2: Install agent
 
-## Step 2: Check dependencies
+Copy agent files into the current project. **Exclude** `scaffold/`, `README.md`, and `mcp.json` from `.claude/` — they are repo-only files.
 
-Run each command below. Report which are installed and which are missing:
-
-| Dependency | Check command | Install command (macOS) |
-|-----------|--------------|------------------------|
-| Git | `git --version` | `brew install git` |
-| Node.js | `node --version` | `brew install node` |
-| npm | `npm --version` | comes with Node.js |
-| npx | `npx --version` | comes with Node.js |
-| Docker | `docker --version` | `brew install --cask docker` |
-| Python 3 | `python3 --version` | `brew install python3` |
-| FFmpeg | `ffmpeg -version` | `brew install ffmpeg` |
-| Claude CLI | `claude --version` | `npm install -g @anthropic-ai/claude-code` |
-
-If anything is missing:
-- Show the user the full list of missing tools with install commands
-- Ask: "Should I try to install these via Homebrew?" (only if `brew` is available)
-- If they say yes, run the install commands
-- If critical tools are missing (git, node, npm), warn but let the user decide whether to continue
-
-## Step 3: Backup existing files
-
-Before copying anything, check if these already exist in the target directory. If they do, back them up:
-
-- `.claude/` exists → `cp -r .claude .claude.bak`
-- `CLAUDE.md` exists → `cp CLAUDE.md CLAUDE.md.bak`
-- `.mcp.json` exists → `cp .mcp.json .mcp.json.bak`
-
-Tell the user about any backups you made.
-
-## Step 4: Copy agent files
-
-Copy `.claude/` from the cloned repo to the target directory, **excluding** these paths:
-- `.claude/scaffold/` (project template — handled separately in Step 6)
-- `.claude/README.md` (repo documentation — not needed in project)
-- `.claude/mcp.json` (template — we generate a fresh one in Step 5)
-
-Use rsync for clean exclusion:
 ```bash
-rsync -a --exclude='scaffold/' --exclude='README.md' --exclude='mcp.json' "$AGENT_DIR/.claude/" "$TARGET_DIR/.claude/"
+rsync -a --exclude='scaffold/' --exclude='README.md' --exclude='mcp.json' /tmp/contempAgent/.claude/ .claude/
+cp /tmp/contempAgent/CLAUDE.md ./CLAUDE.md
+chmod +x .claude/hooks/*.sh
+chmod +x .claude/hooks/*.py 2>/dev/null || true
 ```
 
-Then copy `CLAUDE.md`:
-```bash
-cp "$AGENT_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
-```
+If `.claude/` or `CLAUDE.md` already exist — back them up first (`.claude.bak/`, `CLAUDE.md.bak`).
 
-Make all hooks executable:
-```bash
-chmod +x "$TARGET_DIR/.claude/hooks/"*.sh
-chmod +x "$TARGET_DIR/.claude/hooks/"*.py 2>/dev/null || true
-```
+## Step 3: Generate .mcp.json
 
-## Step 5: Generate .mcp.json
-
-Write this file to the project root. Replace `TARGET_DIR_VALUE` with the actual absolute path of the target directory:
+Write `.mcp.json` to project root. Replace `__PROJECT_DIR__` with the **absolute path** of the current working directory (`pwd`):
 
 ```json
 {
@@ -84,7 +38,7 @@ Write this file to the project root. Replace `TARGET_DIR_VALUE` with the actual 
     "filesystem": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "TARGET_DIR_VALUE"]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "__PROJECT_DIR__"]
     },
     "memento": {
       "type": "stdio",
@@ -100,93 +54,51 @@ Write this file to the project root. Replace `TARGET_DIR_VALUE` with the actual 
 }
 ```
 
-## Step 6: Ask about project scaffold
+If `.mcp.json` already exists — back it up first.
 
-Tell the user:
+## Step 4: Check dependencies
 
-> The agent includes an optional project scaffold with pre-configured tools for video editor development:
-> - package.json — monorepo with TypeScript, ESLint, Prettier, Vitest
-> - tsconfig.json — strict TypeScript config
-> - eslint.config.js — strict ESLint rules (no `any` allowed)
-> - prettier.config.js — code formatting
-> - vitest.config.ts — unit test config (80% coverage thresholds)
-> - playwright.config.ts — E2E tests (Chrome, Firefox, Safari)
-> - docker-compose.yml — app + FFmpeg sidecar + MinIO storage
-> - packages/shared/ — shared TypeScript types (Project, Track, Clip, Effect, etc.)
->
-> Install project scaffold?
+Check each tool. Report installed vs missing:
 
-If the user says yes:
+| Tool | Check | Install (macOS) |
+|------|-------|-----------------|
+| Node.js | `node --version` | `brew install node` |
+| npm | `npm --version` | (comes with Node) |
+| Docker | `docker --version` | `brew install --cask docker` |
+| Python 3 | `python3 --version` | `brew install python3` |
+| FFmpeg | `ffmpeg -version` | `brew install ffmpeg` |
+
+If anything missing — show the list, offer to install via Homebrew (if available). Let user decide.
+
+## Step 5: Scaffold (optional)
+
+Ask the user:
+
+> The agent includes a project scaffold: package.json, tsconfig, ESLint, Prettier, Vitest, Playwright, Docker, shared TypeScript types. Install it?
+
+If yes:
+
 ```bash
-# Copy each config file (backup existing ones first)
 for f in package.json tsconfig.json eslint.config.js prettier.config.js vitest.config.ts playwright.config.ts docker-compose.yml; do
-  cp "$AGENT_DIR/.claude/scaffold/$f" "$TARGET_DIR/$f"
+  cp "/tmp/contempAgent/.claude/scaffold/$f" "./$f"
 done
-cp -r "$AGENT_DIR/.claude/scaffold/packages" "$TARGET_DIR/packages"
-
-# Install dependencies
-cd "$TARGET_DIR" && npm install
+cp -r /tmp/contempAgent/.claude/scaffold/packages ./packages
+npm install
 ```
 
-If the user says no, skip this step entirely.
+Back up any existing files first. If no — skip entirely.
 
-## Step 7: Verify MCP servers
-
-Check that the required npm packages are available:
+## Step 6: Clean up
 
 ```bash
-npm view @upstash/context7-mcp version
-npm view @modelcontextprotocol/server-filesystem version
-npm view @modelcontextprotocol/server-memory version
-npm view @modelcontextprotocol/server-github version
+rm -rf /tmp/contempAgent
+rm install.md
 ```
 
-Report the results. If any fail, warn that they may still work at runtime via npx.
-
-## Step 8: Clean up
-
-1. Remove the temporary clone: `rm -rf "$TMPDIR"`
-2. Delete this instruction file from the project: `rm install.md`
-
-## Step 9: Report and offer /meditate
+## Step 7: Done
 
 Tell the user:
 
-> **Onboarding complete.** Installed:
-> - 4 agents: frontend, backend, pathfinder, qa (all Opus)
-> - 3 hooks: session-start, memory-inject, post-edit-lint
-> - 4 skills: /review, /debug, /deploy, /meditate
-> - 4 MCP servers: context7, filesystem, memento, github
->
-> Run `/meditate` to let all agents scan the codebase and fill memory. This is recommended after first install.
+> Onboarding complete. Installed: 4 agents (frontend, backend, pathfinder, qa), 3 hooks, 4 skills (/review, /debug, /deploy, /meditate), 4 MCP servers.
 
-Then ask: "Would you like me to run /meditate now?"
-
----
-
-## What gets installed
-
-After onboarding, the project will have:
-
-```
-CLAUDE.md              ← coordinator config (the only visible file added)
-.mcp.json              ← MCP server config (hidden dotfile)
-.claude/
-├── agents/
-│   ├── frontend.md    ← TypeScript, React, WebGL2, GLSL, canvas, timeline
-│   ├── backend.md     ← Node.js, API, FFmpeg, media processing, Docker
-│   ├── pathfinder.md  ← Research, docs, libs, architecture, memory
-│   └── qa.md          ← E2E tests, performance, security, shader verification
-├── hooks/
-│   ├── session-start.sh   ← SessionStart: git status, test health, TODOs
-│   ├── memory-inject.sh   ← UserPromptSubmit: auto-inject relevant memory
-│   └── post-edit-lint.sh  ← PostToolUse: auto-lint after TS edits
-├── skills/
-│   ├── review/SKILL.md    ← /review: structured code review
-│   ├── debug/SKILL.md     ← /debug: systematic debugging protocol
-│   ├── deploy/SKILL.md    ← /deploy: deployment checklist with gates
-│   └── meditate/SKILL.md  ← /meditate: deep codebase scan + memory fill
-├── settings.local.json    ← permissions, hooks, MCP config
-└── memory/
-    └── MEMORY.md          ← persistent auto-memory
-```
+Ask: **Run /meditate now?** (recommended — scans the codebase and fills agent memory)
