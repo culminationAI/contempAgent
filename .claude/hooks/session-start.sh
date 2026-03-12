@@ -18,8 +18,12 @@ if git rev-parse --is-inside-work-tree &>/dev/null; then
 fi
 
 # TODOs in source
-if [ -d "src" ] || [ -d "apps" ] || [ -d "packages" ]; then
-  todos=$(grep -rn "TODO\|FIXME\|HACK" src/ apps/ packages/ --include="*.ts" --include="*.tsx" --include="*.glsl" 2>/dev/null | head -10)
+search_dirs=()
+[ -d "src" ] && search_dirs+=("src/")
+[ -d "apps" ] && search_dirs+=("apps/")
+[ -d "packages" ] && search_dirs+=("packages/")
+if [ ${#search_dirs[@]} -gt 0 ]; then
+  todos=$(grep -rn "TODO\|FIXME\|HACK" "${search_dirs[@]}" --include="*.ts" --include="*.tsx" --include="*.glsl" 2>/dev/null | head -10) || true
   [ -n "$todos" ] && context+="\nOpen TODOs:\n$todos\n"
 fi
 
