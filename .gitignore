@@ -1,17 +1,2 @@
 node_modules/
-dist/
-build/
-.env
-.env.local
-.env.production
 .DS_Store
-*.log
-coverage/
-.next/
-.turbo/
-*.tsbuildinfo
-.vite/
-test-results/
-playwright-report/
-.minio/
-storage/

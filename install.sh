@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ─────────────────────────────────────────────────────────
-# ContempAgent v0.2 — Standalone Onboarding Installer
+# ContempAgent v0.3 — Standalone Onboarding Installer
 # Place this file in your project directory and run it.
 # It clones the agent repo, installs files, and cleans up.
 # ─────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ fail()  { echo -e "${RED}✗${NC} $1"; }
 info()  { echo -e "${BLUE}→${NC} $1"; }
 header(){ echo -e "\n${BOLD}${CYAN}$1${NC}\n"; }
 
-header "ContempAgent v0.2 — Standalone Installer"
+header "ContempAgent v0.3 — Standalone Installer"
 
 # ─── Step 1: Check git (hard dependency for clone) ──────
 
@@ -146,7 +146,7 @@ fi
 
 header "Installing Agent Files"
 
-# Copy .claude/ directory
+# Copy .claude/ directory (excluding scaffold/ and repo-only files)
 if [ -d "$AGENT_DIR/.claude" ]; then
   if [ -d "$TARGET_DIR/.claude" ]; then
     warn ".claude/ already exists in target. Backing up to .claude.bak/"
@@ -154,7 +154,12 @@ if [ -d "$AGENT_DIR/.claude" ]; then
     cp -r "$TARGET_DIR/.claude" "$TARGET_DIR/.claude.bak"
   fi
 
-  cp -r "$AGENT_DIR/.claude" "$TARGET_DIR/.claude"
+  # Copy .claude/ but exclude scaffold/ and repo-only files
+  rsync -a \
+    --exclude='scaffold/' \
+    --exclude='README.md' \
+    --exclude='mcp.json' \
+    "$AGENT_DIR/.claude/" "$TARGET_DIR/.claude/"
   log "Copied .claude/ (agents, hooks, skills, memory, settings)"
 else
   fail "No .claude/ directory found in cloned repo"
@@ -174,28 +179,39 @@ else
   warn "No CLAUDE.md found in cloned repo — skipping"
 fi
 
-# Copy .mcp.json and update filesystem path
-if [ -f "$AGENT_DIR/.mcp.json" ]; then
-  if [ -f "$TARGET_DIR/.mcp.json" ]; then
-    warn ".mcp.json already exists. Backing up to .mcp.json.bak"
-    cp "$TARGET_DIR/.mcp.json" "$TARGET_DIR/.mcp.json.bak"
-  fi
-
-  # Replace any hardcoded repo path with the target directory
-  sed "s|$AGENT_DIR|$TARGET_DIR|g" "$AGENT_DIR/.mcp.json" > "$TARGET_DIR/.mcp.json"
-
-  # Also catch the canonical GitHub path pattern (in case the repo .mcp.json
-  # contains its own default path rather than the temp clone path)
-  if grep -q "contempAgent" "$TARGET_DIR/.mcp.json" 2>/dev/null; then
-    # Replace any path ending in /contempAgent with TARGET_DIR
-    sed -i.sedtmp 's|"[^"]*contempAgent"|"'"$TARGET_DIR"'"|g' "$TARGET_DIR/.mcp.json"
-    rm -f "$TARGET_DIR/.mcp.json.sedtmp"
-  fi
-
-  log "Copied .mcp.json (MCP servers — filesystem path updated)"
-else
-  warn "No .mcp.json found in cloned repo — skipping"
+# Generate .mcp.json with correct filesystem path
+if [ -f "$TARGET_DIR/.mcp.json" ]; then
+  warn ".mcp.json already exists. Backing up to .mcp.json.bak"
+  cp "$TARGET_DIR/.mcp.json" "$TARGET_DIR/.mcp.json.bak"
 fi
+
+cat > "$TARGET_DIR/.mcp.json" <<EOF
+{
+  "mcpServers": {
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "$TARGET_DIR"]
+    },
+    "memento": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    },
+    "github": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    }
+  }
+}
+EOF
+log "Generated .mcp.json (filesystem path: $TARGET_DIR)"
 
 # Make hooks executable
 if ls "$TARGET_DIR/.claude/hooks/"*.sh &>/dev/null 2>&1; then
@@ -207,17 +223,60 @@ if ls "$TARGET_DIR/.claude/hooks/"*.py &>/dev/null 2>&1; then
   log "Made hook Python scripts executable"
 fi
 
-# ─── Step 6: Install project dependencies ────────────────
+# ─── Step 6: Scaffold (optional) ─────────────────────────
 
-header "Project Setup"
+header "Project Scaffold"
 
-if [ -f "$TARGET_DIR/package.json" ]; then
-  info "Found package.json — installing dependencies..."
-  (cd "$TARGET_DIR" && npm install 2>&1 | tail -5)
-  log "npm install complete"
+echo "The agent includes a project scaffold with:"
+echo "  . package.json — monorepo with TypeScript, ESLint, Prettier, Vitest"
+echo "  . tsconfig.json — strict TypeScript config"
+echo "  . eslint.config.js — strict ESLint rules (no 'any' allowed)"
+echo "  . prettier.config.js — code formatting"
+echo "  . vitest.config.ts — unit test config (80% coverage thresholds)"
+echo "  . playwright.config.ts — E2E test config (Chrome, Firefox, Safari)"
+echo "  . docker-compose.yml — app + FFmpeg + MinIO"
+echo "  . packages/shared/ — shared TypeScript types"
+echo ""
+
+read -p "Install project scaffold (package.json, TypeScript, ESLint, Prettier, Vitest, Playwright, Docker)? [y/N] " scaffold_confirm
+if [[ "$scaffold_confirm" =~ ^[Yy]$ ]]; then
+  SCAFFOLD_DIR="$AGENT_DIR/.claude/scaffold"
+
+  if [ -d "$SCAFFOLD_DIR" ]; then
+    # Copy scaffold files to target root
+    for f in package.json tsconfig.json eslint.config.js prettier.config.js vitest.config.ts playwright.config.ts docker-compose.yml; do
+      if [ -f "$SCAFFOLD_DIR/$f" ]; then
+        if [ -f "$TARGET_DIR/$f" ]; then
+          warn "$f already exists — backing up to $f.bak"
+          cp "$TARGET_DIR/$f" "$TARGET_DIR/$f.bak"
+        fi
+        cp "$SCAFFOLD_DIR/$f" "$TARGET_DIR/$f"
+      fi
+    done
+
+    # Copy packages/ directory
+    if [ -d "$SCAFFOLD_DIR/packages" ]; then
+      if [ -d "$TARGET_DIR/packages" ]; then
+        warn "packages/ already exists — backing up to packages.bak/"
+        rm -rf "$TARGET_DIR/packages.bak"
+        cp -r "$TARGET_DIR/packages" "$TARGET_DIR/packages.bak"
+      fi
+      cp -r "$SCAFFOLD_DIR/packages" "$TARGET_DIR/packages"
+    fi
+
+    log "Scaffold installed"
+
+    # Install npm dependencies
+    if [ -f "$TARGET_DIR/package.json" ]; then
+      info "Installing npm dependencies..."
+      (cd "$TARGET_DIR" && npm install 2>&1 | tail -5)
+      log "npm install complete"
+    fi
+  else
+    warn "Scaffold directory not found in repo — skipping"
+  fi
 else
-  warn "No package.json found. Skipping npm install."
-  echo "    Run 'npm init' when ready to set up your project."
+  info "Skipping scaffold. You can set up your own project structure."
 fi
 
 # ─── Step 7: Verify MCP servers ─────────────────────────
@@ -241,7 +300,12 @@ verify_mcp "filesystem" "@modelcontextprotocol/server-filesystem"
 verify_mcp "memento"    "@modelcontextprotocol/server-memory"
 verify_mcp "github"     "@modelcontextprotocol/server-github"
 
-# ─── Step 8: Summary & next steps ───────────────────────
+# ─── Step 8: Self-delete installer ───────────────────────
+
+rm -f "$TARGET_DIR/install.sh"
+log "Removed install.sh (no longer needed)"
+
+# ─── Step 9: Summary & next steps ───────────────────────
 
 header "Installation Complete"
 
