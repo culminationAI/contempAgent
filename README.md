@@ -1,4 +1,4 @@
-# ContempAgent v0.2
+# ContempAgent v0.3
 
 AI development agent for browser-based video editors. Built on [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
@@ -16,40 +16,28 @@ All agents run on **Claude Opus** with extended thinking enabled.
 
 ## Quick Start
 
-### One-line install (recommended)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/culminationAI/contempAgent/main/install.sh | bash
-```
-
-### Manual install
-
-1. Download `install.sh` into your project directory
-2. Run it:
+### Option A: Shell script
 
 ```bash
 cd /path/to/your/project
-bash install.sh
+curl -fsSL https://raw.githubusercontent.com/culminationAI/contempAgent/main/install.sh | bash
 ```
+
+### Option B: Claude Code instructions
+
+1. Download [install.md](https://raw.githubusercontent.com/culminationAI/contempAgent/main/install.md) into your project
+2. Open Claude Code and say: **"Read install.md and execute it"**
+
+### What happens
 
 The installer will:
 1. Clone the agent repo to a temp directory
-2. Copy agent configuration (`.claude/`, `CLAUDE.md`, `.mcp.json`) into your project
-3. Check and install missing dependencies (Node.js, Docker, FFmpeg, etc.)
-4. Set up MCP servers (context7, filesystem, memento, github)
-5. Clean up the temp clone
-6. Offer to launch Claude Code and run `/meditate` for full codebase onboarding
-
-### Alternative: Start from the template
-
-```bash
-git clone https://github.com/culminationAI/contempAgent.git my-video-editor
-cd my-video-editor
-npm install
-claude
-```
-
-Then run `/meditate` to let all agents scan the project structure.
+2. Copy agent files (`.claude/`, `CLAUDE.md`) into your project
+3. Generate `.mcp.json` with correct paths
+4. Check dependencies (Node.js, Docker, FFmpeg, Python 3)
+5. Scan your project structure
+6. Clean up and self-delete
+7. Offer to run `/meditate` for full codebase onboarding
 
 ## Architecture
 
@@ -69,6 +57,7 @@ Then run `/meditate` to let all agents scan the project structure.
 │   ├── debug/SKILL.md         # /debug — systematic debugging protocol
 │   ├── deploy/SKILL.md        # /deploy — deployment checklist with gates
 │   └── meditate/SKILL.md      # /meditate — deep codebase scan + memory fill
+├── scaffold/                  # Optional project template (not installed by default)
 ├── settings.local.json        # Permissions, hooks, MCP config
 └── memory/
     └── MEMORY.md              # Persistent auto-memory
@@ -156,16 +145,11 @@ This agent is optimized for browser video editor development:
 | Testing | Vitest, Playwright |
 | Infra | Docker, MinIO (S3-compatible storage) |
 
-## Project Template
+## Project Template (optional)
 
-The repo includes a ready-to-use monorepo scaffold:
+The repo includes a project scaffold in `.claude/scaffold/` with pre-configured configs for video editor development. These are **not installed automatically** -- the agent adapts to your existing project structure via `/meditate`. If you want to use them, copy manually from the scaffold directory.
 
-- `packages/shared/` -- shared TypeScript types (Project, Track, Clip, Effect, API contracts)
-- `tsconfig.json` -- strict TypeScript with composite project references
-- `eslint.config.js` -- strict rules, no `any` allowed
-- `vitest.config.ts` -- 80% coverage thresholds
-- `playwright.config.ts` -- Chrome + Firefox + Safari
-- `docker-compose.yml` -- app + FFmpeg + MinIO
+Available configs: `package.json` (monorepo), `tsconfig.json` (strict), `eslint.config.js`, `prettier.config.js`, `vitest.config.ts`, `playwright.config.ts`, `docker-compose.yml`, `packages/shared/` (shared TypeScript types).
 
 ## Requirements
 
